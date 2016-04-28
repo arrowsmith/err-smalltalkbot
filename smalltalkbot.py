@@ -30,9 +30,16 @@ class SmalltalkBot(BotPlugin):
             return 'Which city do you want to check?'
         args = args.strip()
         if str(args) == "Uranus":
-            return "Mine is warm...What about yours?"
+            return "Mine is warm - around 37C (give or take 0.6C)."
+        if str(args) == "Pluto":
+            blurb = "If we ignore the Mickey Mouse joke routune, the surface of Pluto, can range from a low temperature" +
+                    " of 33 Kelvin (-240 degrees Celsius) and 55 Kelvin (-218 degrees Celsius).\nThe average surface " +
+                    "temperature on Pluto is 44 Kelvin (-229 Celsius)."
+            return blurb
         r = requests.get('http://api.openweathermap.org/data/2.5/weather?q=' + str(args) + '&APPID='+ OpenWeatherMapAPIToken +'&units=Metric')
-        return 'The closest city I have data is ' + r.json()['name'] + ' and according to openweathermap weather is: ' + r.json()['weather'][0]['description'] + ' and temperature is ' + str(r.json()['main']['temp']) + ' Celsius'
+        foundCity = r.json()['name']
+        return 'The closest city I have data is ' + foundCity + ' and according to openweathermap weather is: ' +
+               r.json()['weather'][0]['description'] + ' and temperature is ' + str(r.json()['main']['temp']) + ' Celsius.'
 
     @botcmd
     def time(self, mess, args):
@@ -42,13 +49,22 @@ class SmalltalkBot(BotPlugin):
         if not args:
             return 'Which city do you want to check?'
         args = args.strip()
-        if str(args) == "Uranus":
-            return "Mine is well...What about in yours?"
+        requestedCity = str(args)
+        if requestedCity == "Uranus":
+            return "Mine isn't wearing a watch... what about yours?"
+        if requestedCity == "Pluto":
+            return "It's too far away to tell accurately, but you can find out what time of the day for you is Pluto time, " +
+                   "by clicking here: http://solarsystem.nasa.gov/planets/pluto/plutotime ."
         maps_search = requests.get('http://maps.googleapis.com/maps/api/geocode/json?address=' + str(args) + '&sensor=false')
-        city_tz = requests.get('https://maps.googleapis.com/maps/api/timezone/json?location=' + str(maps_search.json()["results"][0]["geometry"]["location"]["lat"]) + ',' + str(maps_search.json()["results"][0]["geometry"]["location"]["lng"]) + '&timestamp=' + str(int(time.time())) + '&sensor=false')
+        city_tz = requests.get('https://maps.googleapis.com/maps/api/timezone/json?location=' + 
+                  str(maps_search.json()["results"][0]["geometry"]["location"]["lat"]) + ',' +
+                  str(maps_search.json()["results"][0]["geometry"]["location"]["lng"]) + '&timestamp=' +
+                  str(int(time.time())) + '&sensor=false')
         fmt = "%Y-%m-%d %H:%M:%S %Z%z"
 
-        return "I'm guessing you are asking for " + maps_search.json()['results'][0]['formatted_address'] + ". The timezone is " + city_tz.json()['timeZoneName'] + " and time there is " + datetime.datetime.now(timezone(city_tz.json()['timeZoneId'])).strftime(fmt)
+        return "I'm guessing you are asking for " + maps_search.json()['results'][0]['formatted_address'] +
+               ".\nThe timezone is " + city_tz.json()['timeZoneName'] + " and the time there is " +
+               datetime.datetime.now(timezone(city_tz.json()['timeZoneId'])).strftime(fmt) + "."
 
     @botcmd(split_args_with=None)
     def location_setother(self, mess, args):
@@ -95,7 +111,7 @@ class SmalltalkBot(BotPlugin):
             users[requester]=user_location
             self.shelf['users'] = users
         except KeyError:
-            raise "I can't update that user"
+            raise "I can't update your location, sorry. :-("
         return "Done!"
 
 
@@ -110,7 +126,8 @@ class SmalltalkBot(BotPlugin):
         else:
             if user in self.shelf['nicknames']:
                 username = self.shelf['nicknames'][user]
-                return "User " + user + " is a nickname for " + username + ". Location for user " + username + " is " + self.shelf['users'][username]
+                return "User " + user + " is a nickname for " + username + ". Location for user " + username +
+                       " is " + self.shelf['users'][username]
             else:
                 return "I have no record for user " + user
 
@@ -126,7 +143,8 @@ class SmalltalkBot(BotPlugin):
             if user in self.shelf['nicknames']:
                 user = self.shelf['nicknames'][user]
             else:
-                return "I have no record for user " + user
+                return "Who is " + user + "? I have no record for them.\nWant to add them in with !setlocation other " +
+                       user + "?"
 
         try:
             user_location = self.shelf['users'][user]
@@ -135,11 +153,17 @@ class SmalltalkBot(BotPlugin):
             maps_search = requests.get('http://maps.googleapis.com/maps/api/geocode/json?address=' + user_location + '&sensor=false')
             location_latitude = maps_search.json()["results"][0]["geometry"]["location"]["lat"]
             location_longitude = maps_search.json()["results"][0]["geometry"]["location"]["lng"]
-            city_tz = requests.get('https://maps.googleapis.com/maps/api/timezone/json?location=' + str(location_latitude) + ',' + str(location_longitude) + '&timestamp=' + str(int(time.time())) + '&sensor=false')
+            city_tz = requests.get('https://maps.googleapis.com/maps/api/timezone/json?location=' + str(location_latitude) +
+                      ',' + str(location_longitude) + '&timestamp=' + str(int(time.time())) + '&sensor=false')
             fmt = "%Y-%m-%d %H:%M:%S %Z%z"
-            yield maps_search.json()['results'][0]['formatted_address'] + " is in " + city_tz.json()['timeZoneName'] + " timezone, and now it's " + datetime.datetime.now(timezone(city_tz.json()['timeZoneId'])).strftime(fmt) + " there."
-            openweathermap = requests.get('http://api.openweathermap.org/data/2.5/weather?q=' + user_location + '&APPID='+ OpenWeatherMapAPIToken +'&units=Metric')
-            yield 'The closest city I have data is ' + openweathermap.json()['name'] + ' and according to openweathermap, weather is: ' + openweathermap.json()['weather'][0]['description'] + ' and temperature is ' + str(openweathermap.json()['main']['temp']) + ' Celsius'
+            yield maps_search.json()['results'][0]['formatted_address'] + " is in " + city_tz.json()['timeZoneName'] +
+                  " timezone, and now it's " + datetime.datetime.now(timezone(city_tz.json()['timeZoneId'])).strftime(fmt) +
+                  " there."
+            openweathermap = requests.get('http://api.openweathermap.org/data/2.5/weather?q=' + user_location + '&APPID=' +
+                             OpenWeatherMapAPIToken +'&units=Metric')
+            yield 'The closest city I have data is ' + openweathermap.json()['name'] +
+                  ' and according to openweathermap, the weather is: ' + openweathermap.json()['weather'][0]['description'] +
+                  ' and temperature is ' + str(openweathermap.json()['main']['temp']) + ' Celsius.'
 #            return "Done!"
 
         except KeyError:
@@ -147,17 +171,18 @@ class SmalltalkBot(BotPlugin):
 
     @botcmd
     def user_del(self, mess, args):
-        """ Lists all available users
-        Example: !user list
+        """ Deletes specific user
+        Example: !user del tomas
         """
         user = args.strip().title()
         users = self.shelf['users']
         try:
             del users[user]
             self.shelf['users'] = users
+            # Do we need to handle nicknames here too?
             return "User "+ user + " deleted successfully"
         except KeyError:
-            raise "There's no user " + user +" in the database"
+            raise "There's no user " + user + " in the database"
 
     @botcmd
     def user_list(self, mess, args):
@@ -165,6 +190,7 @@ class SmalltalkBot(BotPlugin):
         Example: !user list
         """
         return self['users']
+
     @botcmd(split_args_with=None)
     def nick_add(self, mess, args):
         """ Assigns a nickname to a name
